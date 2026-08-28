@@ -44,6 +44,10 @@ Full algorithm write-up: [PIPELINE.md](PIPELINE.md). Every knob: [examples/confi
 
 ```bash
 pip install -r requirements.txt
+
+# macOS only — required once for XGBoost
+brew install libomp
+
 ./run_portal.sh
 # opens http://localhost:8501
 ```
