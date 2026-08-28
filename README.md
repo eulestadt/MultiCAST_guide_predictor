@@ -1,30 +1,76 @@
-# MultiCAST Guide Predictor
+# MultiCAST Guide Predictor (structure-guided fork)
 
-Extract upstream PAM + 32-nt guides from genes and predict guide activity with a trained model pipeline.
+Fork of [YiyanYang0728/MultiCAST_guide_predictor](https://github.com/YiyanYang0728/MultiCAST_guide_predictor) with an AlphaFold layer so MultiCAST insertions land in a buried fold instead of a linker that could leave a stable fragment.
 
-## Online tool
-- You can use the tool directly by visiting our online portal [MultiCAST_guide_predictor](https://multicastguidepredictor-v1.streamlit.app/) now!
+Upstream paper: Basta et al., *Adapting CRISPR-associated transposons for rapid and high-throughput reverse genetics* ([bioRxiv 2025.10.31.685825](https://doi.org/10.1101/2025.10.31.685825)).
 
-
-## To run model locally >>>
-## Requirements
-
-- Python 3.13+
-- Packages: `biopython`, `numpy`, `pandas`, `scikit-learn`, `joblib`, `scikit-learn`
+**Put in a gene name. Do not paste sequences.**
 
 ```bash
 pip install -r requirements.txt
+
+# one gene
+python -m structure_ko --genes lacZ --organism ecoli_k12
+
+# a list
+python -m structure_ko --genes-file examples/genes.txt --organism ecoli_k12
+
+# everything in one YAML
+python -m structure_ko --config examples/ecoli_k12.yaml
+python -m structure_ko --config examples/config.full.yaml
 ```
+
+Full algorithm write-up: [PIPELINE.md](PIPELINE.md). Every knob: [examples/config.full.yaml](examples/config.full.yaml).
 
 ```bash
-# clone repo
-git clone https://github.com/YiyanYang0728/MultiCAST_guide_predictor.git
-cd MultiCAST_guide_predictor/
+streamlit run app.py
 ```
 
-## Example
+Use the **Structure-guided KO** tab: pick `ecoli_k12`, type `lacZ` (or `b0344`), run.
 
-Using the bundled example files:
+## What you get
+
+For each gene, `results/structure_ko/<gene>/`:
+
+| file | contents |
+| --- | --- |
+| `structure.json` | UniProt, AlphaFold domains, disruption window, notes |
+| `guides.csv` | every CN-PAM guide with insertion AA, jitter robustness, activity, disruption, combined score |
+| `top_guides.csv` | top N for that gene |
+
+Plus `oligos.csv` with Gibson oligos:
+
+`TACTACTGCAAAGTAGCTGATAAC` + 32-nt guide + `CTTTACTGCTGAATAAGTAGATAACTAC`
+
+## How a gene becomes a guide
+
+1. Resolve `lacZ` / `b0344` / `P00722` against the genome GFF (bundled for *E. coli* K-12).
+2. Fetch the AlphaFold DB model (free; no local folding).
+3. Split domains from the PAE matrix; take buried, high-pLDDT residues in the N-terminal fold.
+4. Back-calculate the CAST guide window: Tn6677 inserts **~49 bp downstream** of the protospacer 3′ end (jitter ~44–55 bp is 1–2 amino acids).
+5. Score remaining PAMs with the published MultiCAST XGBoost model.
+6. Rank `combined = 0.55 × activity + 0.45 × disruption`.
+
+## Organism presets
+
+```bash
+python -m structure_ko --list-presets
+```
+
+| preset | genome |
+| --- | --- |
+| `ecoli_k12` | MG1655 `GCF_000005845.2` (bundled) |
+| `ecoli_example` | bundled `GCF_008369605.1` |
+
+For another bacterium, set `organism.assembly` in YAML. FASTA+GFF download once into `cache/`.
+
+---
+
+## Original activity-only predictor
+
+The upstream CLI is unchanged: it still needs a genome FASTA, GFF3, and a gene-ID file.
+
+Online: [multicastguidepredictor-v1.streamlit.app](https://multicastguidepredictor-v1.streamlit.app/)
 
 ```bash
 python MultiCAST_guide_predictor.py \
@@ -35,49 +81,11 @@ python MultiCAST_guide_predictor.py \
   -o results/predictions
 ```
 
-## Usage
+- `-g, --genome`: Genome FASTA
+- `-f, --gff3`: Annotation GFF3
+- `-l, --genes`: One ID per line (`ID` / `Name` / `locus_tag` / `gene` in the GFF)
+- `-m, --model`: `model/model.joblib`
+- `-o, --outprefix`: default `results/predictions`
+- `--threshold`: default `0.5`
 
-```bash
-python MultiCAST_guide_predictor.py \
-  --genome genome.fna \
-  --gff3 annotation.gff3 \
-  --genes genes.csv \
-  --model model.joblib \
-  [--outprefix results/predictions] \
-  [--threshold 0.5] \
-```
-
-### Options
-
-- `-g, --genome` **(required)**: Genome FASTA (`.fna/.fa/.fasta`)
-- `-f, --gff3` **(required)**: Annotation GFF3
-- `-l, --genes` **(required)**: Gene list CSV, **one ID per line**. IDs must match one of GFF3 attributes: `ID`, `Name`, `locus_tag`, or `gene`.
-- `-m, --model` **(required)**: Path to trained **scikit-learn pipeline** serialized with joblib (optionally includes XGBoost), e.g. `model/model.joblib`
-- `-o, --outprefix` *(default: `results/predictions`)*: Output prefix for predictions CSV
-- `--threshold` *(default: `0.5`)*: Probability cutoff used to create `pred_label_thr`
-
-## Inputs
-
-- **Genome FASTA**: One or more sequences; header IDs must match the `seqid` used in the GFF3.
-- **GFF3**: Gene annotations. The script looks for `gene` and `CDS` features and reads attributes from column 9.
-- **Gene list (CSV)**: A single column with one gene identifier per line; must match `ID`/`Name`/`locus_tag`/`gene` in the GFF3.
-
-## What it does
-
-1. Parses the GFF3 and extracts each requested gene’s ORF (reverse-complements if on `-` strand).
-2. Scans for PAM sites with upstream context and downstream **32-nt guide** windows on both strands.
-3. Builds features for each candidate (PAM/guide positions, counts, runs, entropy, k-mers).
-4. Loads a trained pipeline (`joblib`) and predicts **probability of positive activity**.
-
-## Outputs
-
-- **`<outprefix>.csv`** (e.g., `results/predictions.csv`) with columns:
-  - `gene`, `pam_region`, `guide_sequence`, `sequence_number`, `strand`, `center`
-  - `proba_pos` — predicted probability (class 1)
-  - `pred_label_thr` — 0/1 using `--threshold`
-  - `proba_rank` — rank of `proba_pos` (1 = lowest if ascending; useful for prioritization)
-
-## Notes & Tips
-
-- If you see `No guides found`, double-check that your gene IDs exist in the GFF3 and that PAM sites are present.
-
+Outputs `proba_pos`, `pred_label_thr`, and `proba_rank`.

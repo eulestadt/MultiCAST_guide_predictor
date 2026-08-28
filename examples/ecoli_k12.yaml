@@ -1,0 +1,15 @@
+# Structure-guided MultiCAST knockout design
+# Gene names only — no copy-paste of nucleotide sequences.
+
+organism:
+  preset: ecoli_k12
+
+genes:
+  - lacZ
+  - recA
+
+scoring:
+  top_n_per_gene: 8
+
+output:
+  dir: results/structure_ko

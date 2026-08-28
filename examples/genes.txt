@@ -1,0 +1,5 @@
+# One identifier per line: gene name, locus_tag, or UniProt accession.
+# Sequences are not required.
+lacZ
+recA
+gyrA

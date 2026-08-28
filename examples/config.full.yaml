@@ -1,0 +1,61 @@
+# Full configuration for structure-guided MultiCAST knockout design.
+# Every knob the pipeline reads is listed here. Copy this file and edit.
+
+organism:
+  # Preset fills genome, GFF, taxon, and UniProt proteome.
+  # Built-in: ecoli_k12, ecoli_example
+  preset: ecoli_k12
+  name: Escherichia coli K-12 MG1655
+  taxon_id: 83333
+  assembly: GCF_000005845.2
+  uniprot_proteome: UP000000625
+  # Local files (used if present). Otherwise the assembly is downloaded once to cache/.
+  genome: example/GCF_000005845.2_ASM584v2_genomic.fna
+  gff3: example/GCF_000005845.2_ASM584v2_genomic.gff
+
+# Put gene names, locus tags (b0344), protein_ids, or UniProt accessions.
+# Do not paste CDS or protein sequence.
+genes:
+  - lacZ
+  - recA
+  - gyrA
+
+# Optional extra list (one ID per line). Merged with genes: above.
+genes_file: examples/genes.txt
+
+cast:
+  # Tn6677 inserts ~49 bp downstream of the protospacer 3' end (Basta et al.).
+  insertion_offset_bp: 49
+  # Design the window so a ±few bp landing still cuts the same fold.
+  jitter_min_bp: 44
+  jitter_max_bp: 55
+  guide_length: 32
+  pam: CN
+  # Paper default: target the first half of the CDS as a backstop.
+  cds_fraction: [0.05, 0.50]
+  # Gibson homology + atypical CRISPR repeats from the MultiCAST methods:
+  # 5'-TACTACTGCAAAGTAGCTGATAAC-[32 nt guide]-CTTTACTGCTGAATAAGTAGATAACTAC-3'
+  oligo_left: TACTACTGCAAAGTAGCTGATAAC
+  oligo_right: CTTTACTGCTGAATAAGTAGATAACTAC
+
+structure:
+  plddt_min: 70          # AlphaFold confident residues
+  rsa_max: 0.30          # buried CA-neighbor proxy (lower = more buried)
+  pae_split_delta: 5.0   # PAE inter-vs-intra score required to split domains
+  min_domain_aa: 40
+  edge_buffer_aa: 8      # keep the cut off domain edges (covers 1–2 aa jitter)
+  prefer_n_terminal_domain: true
+  skip_disordered: true
+  burial_cutoff_angstrom: 10.0
+
+scoring:
+  model: model/model.joblib
+  threshold: 0.5
+  top_n_per_gene: 8
+  # combined_score = activity_weight * P(high activity) + disruption_weight * structural score
+  activity_weight: 0.55
+  disruption_weight: 0.45
+
+output:
+  dir: results/structure_ko
+  cache_dir: cache
