@@ -4,7 +4,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .DS_Store
-.streamlit/
+.streamlit/secrets.toml
+.streamlit/*.json
 cache/
 results/structure_ko/
 *.egg-info/

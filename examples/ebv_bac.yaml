@@ -1,0 +1,20 @@
+# EBV BAC knockout guide design — gene names only.
+# Point genome at your SnapGene file (annotations are read automatically).
+
+organism:
+  preset: ebv_bac
+  name: EBV BAC p2089
+  taxon_id: 10376
+  # Edit this path, or pass --dna on the command line instead:
+  genome: /Users/phoenixwang/Downloads/EBV-BAC-p2089.dna
+
+genes:
+  - BALF5
+  - BXLF1
+  - BRLF1
+
+output:
+  dir: results/ebv_bac
+
+scoring:
+  top_n_per_gene: 8

@@ -100,6 +100,14 @@ ORGANISM_PRESETS: dict[str, dict[str, Any]] = {
         "genome": "example/GCF_008369605.1.fna",
         "gff3": "example/GCF_008369605.1.gff",
     },
+    "ebv_bac": {
+        "name": "EBV BAC (SnapGene — set organism.genome to your .dna path)",
+        "taxon_id": 10376,
+        "uniprot_proteome": "UP000009302",
+        "assembly": None,
+        "genome": None,
+        "gff3": None,
+    },
 }
 
 

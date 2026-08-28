@@ -6,9 +6,27 @@ Upstream paper: Basta et al., *Adapting CRISPR-associated transposons for rapid 
 
 **Put in a gene name. Do not paste sequences.**
 
+### Your EBV BAC (SnapGene — no FASTA/GFF hunting)
+
+Your `EBV-BAC-p2089.dna` already has ~87 named viral CDS features (`BALF5`, `BXLF1`, …). Point at the file:
+
 ```bash
 pip install -r requirements.txt
 
+# What genes can I target?
+python -m structure_ko list-genes --dna /Users/phoenixwang/Downloads/EBV-BAC-p2089.dna
+python -m structure_ko list-genes --dna /Users/phoenixwang/Downloads/EBV-BAC-p2089.dna --search BALF
+
+# Design knockout guides
+python -m structure_ko --dna /Users/phoenixwang/Downloads/EBV-BAC-p2089.dna \
+  --genes BALF5 BXLF1 BRLF1 --organism ebv_bac
+```
+
+Or edit `examples/ebv_bac.yaml` once (genome path) and run `python -m structure_ko --config examples/ebv_bac.yaml`.
+
+### Bacterial presets (auto genome + GFF)
+
+```bash
 # one gene
 python -m structure_ko --genes lacZ --organism ecoli_k12
 
@@ -22,11 +40,21 @@ python -m structure_ko --config examples/config.full.yaml
 
 Full algorithm write-up: [PIPELINE.md](PIPELINE.md). Every knob: [examples/config.full.yaml](examples/config.full.yaml).
 
+### Web portal
+
 ```bash
-streamlit run app.py
+pip install -r requirements.txt
+./run_portal.sh
+# opens http://localhost:8501
 ```
 
-Use the **Structure-guided KO** tab: pick `ecoli_k12`, type `lacZ` (or `b0344`), run.
+In the browser:
+
+1. **Structure-guided design** → upload your SnapGene `.dna` (or pick E. coli preset)
+2. Pick genes from the dropdown (`BALF5`, …) or type names
+3. Download `oligos.csv` with Gibson-ready sequences
+
+Deploy to [Streamlit Community Cloud](https://share.streamlit.io) by pointing at this repo and `app.py` (model file must be in the repo).
 
 ## What you get
 

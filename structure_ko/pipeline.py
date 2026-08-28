@@ -19,11 +19,9 @@ from .cast import (
     scan_guides,
 )
 from .config import PipelineConfig, REPO_ROOT, dump_config
+from .genome_bundle import load_genome_bundle
 from .gene import (
-    ensure_genome_files,
     gene_to_dict,
-    load_genome,
-    parse_gff_index,
     resolve_gene,
 )
 from .structure import analyze_structure
@@ -176,9 +174,14 @@ def run_pipeline(cfg: PipelineConfig) -> pd.DataFrame:
     if not cfg.genes:
         raise SystemExit("No genes provided. Pass --genes, --genes-file, or config.genes.")
 
-    genome_path, gff_path = ensure_genome_files(cfg)
-    genome = load_genome(genome_path)
-    index = parse_gff_index(gff_path)
+    bundle = load_genome_bundle(cfg)
+    genome = bundle.genome
+    index = bundle.index
+    print(f"[structure_ko] genome source: {bundle.source}", end="")
+    if bundle.snapgene_path:
+        print(f" ({bundle.snapgene_path.name}, {len(bundle.gene_names)} named CDS)")
+    else:
+        print()
     model = _load_model(cfg)
 
     outdir = cfg.resolved_path(cfg.output.dir) or (REPO_ROOT / cfg.output.dir)

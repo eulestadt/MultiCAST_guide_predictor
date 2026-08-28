@@ -130,11 +130,10 @@ def parse_gff_index(gff3_path: Path) -> dict[str, dict[str, Any]]:
     return index
 
 
-def _translate_cds(cds: str) -> str:
+def _translate_cds(cds: str, transl_table: int = 11) -> str:
     seq = Seq(cds)
-    # bacterial table 11; incomplete 3' still translates with to_stop=False
     try:
-        prot = str(seq.translate(table=11, to_stop=False, cds=False))
+        prot = str(seq.translate(table=transl_table, to_stop=False, cds=False))
     except Exception:
         prot = str(seq.translate(to_stop=False))
     return prot.rstrip("*")
@@ -232,16 +231,46 @@ def ensure_genome_files(cfg: PipelineConfig) -> tuple[Path, Path]:
     return existing_fna[0], existing_gff[0]
 
 
+def _lookup_gene(query: str, index: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    q = query.strip()
+    if not q:
+        return None
+    candidates = [
+        q,
+        q.lower(),
+        q.upper(),
+        f"{q} CDS",
+        f"{q.upper()} CDS",
+    ]
+    for c in candidates:
+        hit = index.get(c)
+        if hit:
+            return hit
+    # Fuzzy: token match on gene / name / product
+    q_up = q.upper()
+    for info in index.values():
+        for field in ("gene", "Name", "product"):
+            val = info.get(field)
+            if not val:
+                continue
+            val_up = str(val).upper()
+            if val_up == q_up or val_up.startswith(q_up + " ") or q_up in val_up.split():
+                return info
+    return None
+
+
 def resolve_gene(query: str, cfg: PipelineConfig, genome: dict[str, Seq], index: dict[str, dict[str, Any]]) -> GeneRecord:
     q = query.strip()
-    info = index.get(q) or index.get(q.lower())
+    info = _lookup_gene(q, index)
     if info is None:
         raise KeyError(
-            f"Gene '{q}' not found in GFF. Use a gene name, locus_tag, protein_id, or UniProt accession."
+            f"Gene '{q}' not found. Try an exact EBV symbol (e.g. BALF5), locus_tag, or run "
+            "`python -m structure_ko list-genes --dna yourfile.dna` to see names in the file."
         )
     cds = extract_cds(genome, info)
-    protein = _translate_cds(cds)
-    uniprot = info.get("uniprot") or uniprot_search(info.get("gene") or info.get("locus_tag") or q, cfg)
+    transl_table = int(info.get("transl_table") or 11)
+    protein = _translate_cds(cds, transl_table=transl_table)
+    uniprot = info.get("uniprot") or uniprot_search(info.get("gene") or info.get("Name") or q, cfg)
     return GeneRecord(
         query=q,
         name=info.get("gene") or info.get("Name") or q,
